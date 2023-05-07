@@ -1,0 +1,77 @@
+import pyodbc
+import pandas as pd
+import os
+import datetime
+import time
+
+# Connection string to SQL Server database
+conn_str = 'Driver={SQL Server};Server=myServerAddress;Database=myDataBase;Trusted_Connection=yes;'
+
+# Folder to store query results as CSV files
+folder_path = 'C:/sql_results/'
+
+# Time of day to run the script
+run_time = '23:00:00'
+
+# Connect to SQL Server database
+conn = pyodbc.connect(conn_str)
+
+# Cursor to execute SQL commands
+cursor = conn.cursor()
+
+# List of SQL queries and CSV file names to execute
+queries = [
+    ('SELECT * FROM table1', 'results1.csv'),
+    ('SELECT * FROM table2', 'results2.csv'),
+    ('SELECT * FROM table3', 'results3.csv')
+]
+
+# Loop through the queries and execute each one
+for query, filename in queries:
+    # Execute the query and retrieve the results as a Pandas DataFrame
+    df = pd.read_sql_query(query, conn)
+    # Store the results in a CSV file in the folder
+    file_path = folder_path + filename
+    df.to_csv(file_path, index=False)
+ 
+# Close the database connection
+conn.close()
+
+# Loop indefinitely and run the truncation and load process at the specified time
+while True:
+    now = datetime.datetime.now().strftime('%H:%M:%S')
+    if now == run_time:
+        # Loop through all CSV files in the results folder
+        for filename in os.listdir(folder_path):
+            if filename.endswith('.csv'):
+                file_path = folder_path + filename
+                # Load the data from the CSV file
+                df = pd.read_csv(file_path)
+                # Truncate the corresponding table in the database
+                table_name = filename.split('_')[0]
+                cursor.execute(f'TRUNCATE TABLE {table_name}')
+                # Load the data into the corresponding table
+                df.to_sql(table_name, conn, if_exists='append', index=False)
+        # Commit the changes to the database
+        conn.commit()
+    # Wait 1 minute before checking the time again
+    time.sleep(60)
+
+
+
+Automating to run
+vimport datetime
+import time
+import schedule
+
+def job():
+    now = datetime.datetime.now()
+    print("Hello, world!")
+    with open("log.txt", "a") as f:
+        f.write(now.strftime("%Y-%m-%d %H:%M:%S") + "\n")
+
+schedule.every().day.at("16:00").do(job)
+
+while True:
+    schedule.run_pending()
+    time.sleep(1)
